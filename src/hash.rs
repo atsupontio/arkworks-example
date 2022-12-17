@@ -7,16 +7,16 @@ use ark_relations::r1cs::{ConstraintSynthesizer, ConstraintSystemRef, SynthesisE
 use ark_r1cs_std::{fields::fp::FpVar, alloc::AllocVar};
 use ark_r1cs_std::eq::EqGadget;
 
-
 use ark_crypto_primitives::crh::injective_map::constraints::{
-    PedersenCRHCompressorGadget, TECompressorGadget,
+    PedersenCRHCompressorGadget, TECompressorGadget, 
 };
-use ark_crypto_primitives::crh::{ CRHGadget, CRH, pedersen::Parameters as PedersenParamsVar2 ,  pedersen::constraints::{CRHParametersVar as PedersenParamsVar}};
+use ark_crypto_primitives::crh::{ CRHGadget, CRH , pedersen::Parameters as PedersenParamsVar2 ,  pedersen::constraints::{CRHParametersVar as PedersenParamsVar}};
 use ark_crypto_primitives::crh::{
     injective_map::{PedersenCRHCompressor, TECompressor},
-    pedersen,
+    /*pedersen::constraints::CRHGadget,*/
+    pedersen
 };
-use ark_ed_on_bls12_381::{constraints::EdwardsVar, EdwardsProjective as JubJub, EdwardsParameters};
+use ark_ed_on_bls12_381::{constraints::EdwardsVar, EdwardsProjective as JubJub, EdwardsParameters, constraints::FqVar, EdwardsProjective};
 use arkworks_native_gadgets::prelude::ark_ff::Fp256;
 
 use crate::encode::encode_hex; // import Groth16 library
@@ -39,20 +39,22 @@ impl pedersen::Window for Window {
 
 // pub type PedeHash = PedersenCRHCompressor<JubJub, TECompressor, Window>;
 
-// pub type TwoToOneHashGadget = PedersenCRHCompressorGadget<
-//     JubJub,
-//     TECompressor,
-//     Window,
-//     EdwardsVar,
-//     TECompressorGadget,
-// >;
+pub type HashGadget = PedersenCRHCompressorGadget<
+    JubJub,
+    TECompressor,
+    Window,
+    EdwardsVar,
+    TECompressorGadget,
+>;
 pub type ConstraintF = ark_ed_on_bls12_381::Fq;
 
 /// The root of the account Merkle tree.
 pub type Image = <TestCRHGadget as CRH>::Output;
 
+pub type Image3 = ark_crypto_primitives::crh::pedersen::CRH<JubJub, Window>;
+
 /// The R1CS equivalent of the the Merkle tree root.
-pub type ImageVar = <TestCRHGadget as CRHGadget<TestCRHGadget, ConstraintF>>::OutputVar;
+// pub type ImageVar = <TestCRHGadget as CRHGadget<TestCRHGadget, ConstraintF>>::OutputVar;
 
 
 // pub type HashParamsVar = <TwoToOneHashGadget as CRHGadget<TestCRHGadget, ConstraintF>>::ParametersVar;
@@ -61,16 +63,21 @@ type TestCRH = pedersen::CRH<JubJub, Window>;
 type TestCRHGadget = pedersen::constraints::CRHGadget<JubJub, EdwardsVar, Window>;
 
 // type Image2 = ark_crypto_primitives::crh::pedersen::CRH<JubJub, Window>::Output;
-type ImageVar2 = <TestCRHGadget as TestCRH<pedersen::CRH<EdwardsVar, Window>, ConstraintF>>::OutputVar;
+type ImageVar2 = <TestCRHGadget as CRHGadget<pedersen::CRH<EdwardsVar, Window>, ConstraintF>>::OutputVar;
 // type ImageVar2 = <ark_crypto_primitives::crh::pedersen::constraints::CRHGadget<ark_ec::twisted_edwards_extended::GroupProjective<EdwardsParameters>, ark_r1cs_std::groups::curves::twisted_edwards::AffineVar<EdwardsParameters, FpVar<Fp256<ark_bls12_381::FrParameters>>>, Window> as CRHGadget<TestCRHGadget, ConstraintF>>::OutputVar;
 type Image2 = <ark_crypto_primitives::crh::pedersen::CRH<ark_ec::twisted_edwards_extended::GroupProjective<EdwardsParameters>, Window> as CRH>::Output;
 
-type a = <TestCRHGadget as TestCRH<TestCRHGadget, ConstraintF>>::OutputVar;
+// type a = CRHGadget<JubJub, EdwardsVar, Window>;
+
+pub type TwoToOneHash = PedersenCRHCompressor<EdwardsProjective, TECompressor, Window>;
+type ImageVar4 = <HashGadget as CRHGadget<TwoToOneHash, ConstraintF>>::OutputVar;
+
+// type Image5 = EdwardsVar<EdwardsParameters,>;
 
 // proving that I know x such that x^3 + x + 5 == 35
 // Generalized: x^3 + x + 5 == out
 #[allow(clippy::upper_case_acronyms)]
-// #[derive(Clone)]
+#[derive(Clone)]
 pub struct HashDemo {
     pub input: Vec<u8>,
     pub params: PedersenParamsVar2<JubJub>,
@@ -80,7 +87,7 @@ pub struct HashDemo {
 impl ConstraintSynthesizer<Fr> for HashDemo { 
     fn generate_constraints(self, cs: ConstraintSystemRef<Fr>) -> Result<(), SynthesisError> {
 
-        let image = ImageVar::new_input(ark_relations::ns!(cs, "image_var"), || Ok(&self.image))?;
+        let image = EdwardsVar::new_input(ark_relations::ns!(cs, "image_var"), || Ok(&self.image))?;
         // let two_to_one_crh_params =
         //     TwoToOneHashParamsVar::new_constant(cs.clone(), &self.params)?;
 
@@ -94,33 +101,13 @@ impl ConstraintSynthesizer<Fr> for HashDemo {
 
         let hash_result_var = TestCRHGadget::evaluate(&two_to_one_crh_params, &input_bytes).unwrap();
 
-        let hash_result = FpVar::<Fr>::new_witness(
-            ark_relations::ns!(cs, "new witness x^2"), || Ok(hash_result_var.value())
-        ).expect("create new witness");
-        let image = image;
-        image.enforce_equal(&hash_result_var.value().unwrap());
-
-        let x_val = self.x;
-        let tmp_square = x_val * x_val;
-        let square_witness = FpVar::<Fr>::new_witness(
-            ark_relations::ns!(cs, "new witness x^2"), || Ok(tmp_square)
-        ).expect("create new witness");
-
-        x_witness.square_equals(&square_witness)?;
-
-       let tmp_cube = tmp_square * x_val;
-       let cube_witness = FpVar::<Fr>::new_witness(
-        ark_relations::ns!(cs, "new witness x^3"), || Ok(tmp_cube)
-        ).expect("create new witness");
-
-        square_witness.mul_equals(&x_witness, &cube_witness)?;
-
-        let tmp_out = tmp_cube + x_val;
-        let out = FpVar::<Fr>::new_input(
-            ark_relations::ns!(cs, "new witness x^3 + x"), || Ok(tmp_out)
-        ).expect("create new witness");
-
-        out.enforce_equal(&(cube_witness + x_witness))?;
+        // let hash_result = hash_result_var.value().unwrap();
+        // let hash_result = FpVar::<Fr>::new_witness(
+        //     ark_relations::ns!(cs, "new witness x^2"), || Ok(hash_result_var.value())
+        // ).expect("create new witness");
+        // let image = image.value().unwrap();
+        // image.enforce_equal(&hash_result_var.value().unwrap());
+        hash_result_var.enforce_equal(&image)?;
 
         Ok(())
     }
@@ -141,24 +128,30 @@ fn to_fq(x: i64) -> Fr {
     fq
 }
 
+
+
 #[test]
 fn test_cube_proof(){
-    use ark_std::rand::{rngs::StdRng, SeedableRng};
+    use ark_std::rand::{rngs::StdRng, SeedableRng, Rng};
     use ark_groth16::*;
     use ark_ec::PairingEngine;
     use arkworks_native_gadgets::{to_field_elements, from_field_elements};
     use ark_serialize::*;
     use crate::encode;
 
-    let mut rng = StdRng::seed_from_u64(0u64);
+    let rng = &mut StdRng::seed_from_u64(0u64);
 
     let x = to_fq(3);
 
+    let input = Vec::new();
+    input.push(30);
+
+    let parameters = TestCRH::setup(rng).unwrap();
+    let primitive_result = TestCRH::evaluate(&parameters, input.as_slice()).unwrap();
     let circuit = HashDemo {
-        lhs: lhs,
-        rhs,
-        params,
-        image,
+        input,
+        params: parameters,
+        image: primitive_result,
     };
 
     let mut statement = Vec::new();
