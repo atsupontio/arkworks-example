@@ -87,7 +87,7 @@ pub struct HashDemo {
 impl ConstraintSynthesizer<Fr> for HashDemo { 
     fn generate_constraints(self, cs: ConstraintSystemRef<Fr>) -> Result<(), SynthesisError> {
 
-        let image = EdwardsVar::new_input(ark_relations::ns!(cs, "image_var"), || Ok(&self.image))?;
+        let image = EdwardsVar::<_,_>::new_input(ark_relations::ns!(cs, "image_var"), || Ok(&self.image))?;
         // let two_to_one_crh_params =
         //     TwoToOneHashParamsVar::new_constant(cs.clone(), &self.params)?;
 
