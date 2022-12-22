@@ -1,6 +1,7 @@
 
 use ark_bls12_381::{Bls12_381, Fr};
 
+use ark_ec::ProjectiveCurve;
 use ark_r1cs_std::prelude::*;
 use ark_r1cs_std::uint8::UInt8;
 use ark_relations::r1cs::{ConstraintSynthesizer, ConstraintSystemRef, SynthesisError, Field}; 
@@ -62,6 +63,7 @@ pub type Image3 = ark_crypto_primitives::crh::pedersen::CRH<JubJub, Window>;
 type TestCRH = pedersen::CRH<JubJub, Window>;
 type TestCRHGadget = pedersen::constraints::CRHGadget<JubJub, EdwardsVar, Window>;
 
+
 // type Image2 = ark_crypto_primitives::crh::pedersen::CRH<JubJub, Window>::Output;
 type ImageVar2 = <TestCRHGadget as CRHGadget<pedersen::CRH<EdwardsVar, Window>, ConstraintF>>::OutputVar;
 // type ImageVar2 = <ark_crypto_primitives::crh::pedersen::constraints::CRHGadget<ark_ec::twisted_edwards_extended::GroupProjective<EdwardsParameters>, ark_r1cs_std::groups::curves::twisted_edwards::AffineVar<EdwardsParameters, FpVar<Fp256<ark_bls12_381::FrParameters>>>, Window> as CRHGadget<TestCRHGadget, ConstraintF>>::OutputVar;
@@ -74,8 +76,6 @@ type ImageVar4 = <HashGadget as CRHGadget<TwoToOneHash, ConstraintF>>::OutputVar
 
 // type Image5 = EdwardsVar<EdwardsParameters,>;
 
-// proving that I know x such that x^3 + x + 5 == 35
-// Generalized: x^3 + x + 5 == out
 #[allow(clippy::upper_case_acronyms)]
 #[derive(Clone)]
 pub struct HashDemo {
@@ -87,10 +87,11 @@ pub struct HashDemo {
 impl ConstraintSynthesizer<Fr> for HashDemo { 
     fn generate_constraints(self, cs: ConstraintSystemRef<Fr>) -> Result<(), SynthesisError> {
 
-        let image = EdwardsVar::<_,_>::new_input(ark_relations::ns!(cs, "image_var"), || Ok(&self.image))?;
+        let image = EdwardsVar::new_input(ark_relations::ns!(cs, "image_var"), || Ok(&self.image))?;
         // let two_to_one_crh_params =
         //     TwoToOneHashParamsVar::new_constant(cs.clone(), &self.params)?;
 
+        ImageVar2::new_input(ark_relations::ns!(cs, "image_var"), || Ok(&self.image))?;
         let two_to_one_crh_params =
         pedersen::constraints::CRHParametersVar::new_constant(ark_relations::ns!(cs, "parameters"), &self.params)?;
 
@@ -107,7 +108,7 @@ impl ConstraintSynthesizer<Fr> for HashDemo {
         // ).expect("create new witness");
         // let image = image.value().unwrap();
         // image.enforce_equal(&hash_result_var.value().unwrap());
-        hash_result_var.enforce_equal(&image)?;
+        hash_result_var.conditional_enforce_equal(&image, &Boolean::TRUE);
 
         Ok(())
     }

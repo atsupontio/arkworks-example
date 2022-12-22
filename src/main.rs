@@ -1,6 +1,7 @@
 // mod cube;
 mod encode;
-mod hash;
+mod encode_hex;
+mod hash2;
 
 use ark_bls12_381::{Bls12_381, Fr};
 use ark_r1cs_std::prelude::FieldVar;
