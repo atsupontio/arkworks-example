@@ -173,7 +173,6 @@ fn test_cube_proof(){
 
     let pvk = prepare_verifying_key(&param.vk);
 
-
     encode::encode_parameters(proof_vec, vkey_vec, public_input);
 
     let result = verify_proof(&pvk, &proof, &statement).unwrap();

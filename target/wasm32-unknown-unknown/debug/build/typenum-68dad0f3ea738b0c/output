@@ -1,3 +1,0 @@
-cargo:rerun-if-changed=build/main.rs
-cargo:rustc-env=TYPENUM_BUILD_CONSTS=/home/koyama/arkworks-example/target/wasm32-unknown-unknown/debug/build/typenum-68dad0f3ea738b0c/out/consts.rs
-cargo:rustc-env=TYPENUM_BUILD_OP=/home/koyama/arkworks-example/target/wasm32-unknown-unknown/debug/build/typenum-68dad0f3ea738b0c/out/op.rs

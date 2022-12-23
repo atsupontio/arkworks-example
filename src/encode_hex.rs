@@ -9,23 +9,44 @@ pub fn encode_hex(bytes: &[u8]) -> String {
 }
 
 
-pub fn hexdump(bytes: &[u8]) -> String {
+pub fn hexdump_option(bytes: &[u8], max: usize) -> Vec<Option<u8>> {
 
-    let mut sum = String::new();
+    let mut sum = Vec::new();
 
-    println!("{} bytes:", bytes.len());
+    // println!("{} bytes:", bytes.len());
     for (i, b) in bytes.iter().enumerate() {
         // b: &u8 の値を2桁の16進数で表示する
-        print!("{:?}", b);
-        let a = format!("{:b}", b);
-        sum += &a;
+        let a = Some(*b);
+        sum.push(a);
 
-        // 値を16個表示するごとに改行する
-        if (i + 1) % 16 == 0 {
-            println!();
-        }
     }
-    println!();
-    println!("{:?}", sum);
+
+    println!("bytes len {:?}", bytes.len());
+
+    let count = max - bytes.len();
+    for i in 0..count {
+        sum.push(Some(000))
+    }
+
+    sum
+}
+
+pub fn hexdump(bytes: &[u8], max: usize) -> Vec<u8> {
+
+    let mut sum = Vec::new();
+
+    // println!("{} bytes:", bytes.len());
+    for (i, b) in bytes.iter().enumerate() {
+        // b: &u8 の値を2桁の16進数で表示する
+        let a = *b;
+        sum.push(a);
+
+    }
+
+    let count = max - bytes.len();
+    for i in 0..count {
+        sum.push(000)
+    }
+
     sum
 }
